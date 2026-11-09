@@ -93,6 +93,8 @@
   .yes { margin-top: 10px; background: var(--ok-bg); color: var(--ok); border-radius: 10px; padding: 10px 12px; font-weight: 600; }
   .no { margin-top: 10px; color: var(--muted); font-size: 14px; }
   .opts { display: grid; gap: 8px; margin-top: 10px; }
+  .opts button { font-weight: 600; text-align: left; border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; background: none; }
+  .opts button::after { content: " ›"; color: var(--muted); }
   .opts a { display: flex; justify-content: space-between; text-decoration: none; color: var(--text); font-weight: 600;
     border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; }
   .opts a::after { content: "›"; color: var(--muted); }
@@ -106,6 +108,33 @@
   .acts { display: flex; gap: 8px; margin-top: 18px; }
   .acts button { flex: 1; border: 1px solid var(--line); background: var(--chip); border-radius: 12px; padding: 11px; font-weight: 600; font-size: 14px; }
   #today { background: var(--card); border-color: var(--brand); color: var(--text); font-weight: 600; }
+  .plan-chip { background: var(--ok-bg); color: var(--ok); border-color: transparent; font-weight: 700; }
+  .teamlist { display: grid; max-height: 55vh; overflow-y: auto; margin-top: 10px; }
+  .teamlist button { display: flex; align-items: center; gap: 10px; padding: 10px 6px; border: 0; border-bottom: 1px solid var(--line); background: none; text-align: left; font-weight: 600; }
+  .plan-head { display: flex; align-items: center; gap: 12px; margin-right: 36px; }
+  .plan-head .big { width: 52px; height: 52px; object-fit: contain; }
+  .plan-head h3 { font-size: 18px; line-height: 1.25; }
+  .plan-head p { margin: 2px 0 0; }
+  .link { border: 0; background: none; padding: 0; color: var(--ok); font-weight: 600; text-decoration: underline; }
+  .best { background: var(--ok-bg); border-radius: 14px; padding: 14px 16px; margin-top: 16px; }
+  .best .lbl { font-size: 12px; text-transform: uppercase; letter-spacing: .07em; color: var(--ok); font-weight: 700; }
+  .best .amt { font-size: 32px; font-weight: 800; color: var(--ok); }
+  .best .amt small { font-size: 15px; font-weight: 600; }
+  .best p { margin: 2px 0 8px; color: var(--text); }
+  .pl { display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 9px 0; border-top: 1px solid rgba(0,0,0,.08); }
+  .pl small { display: block; color: var(--muted); font-size: 13px; }
+  .pl a { background: var(--brand); color: #fff; text-decoration: none; font-weight: 700; font-size: 14px; border-radius: 9px; padding: 7px 12px; white-space: nowrap; }
+  .have { color: var(--ok); font-weight: 700; font-size: 14px; }
+  .opts .pr { color: var(--muted); font-weight: 600; }
+  .opts a:has(.pr)::after { content: none; }
+  .notes { margin: 14px 0 0; padding-left: 18px; color: var(--muted); font-size: 14px; display: grid; gap: 6px; }
+  details.sec summary { cursor: pointer; font-weight: 600; }
+  .sched { list-style: none; margin: 10px 0 0; padding: 0; font-size: 14px; }
+  .sched li { display: grid; grid-template-columns: 56px 1fr auto; gap: 8px; padding: 8px 0; border-top: 1px solid var(--line); align-items: center; }
+  .sched .when { color: var(--muted); }
+  .sched .ch { text-align: right; font-weight: 700; }
+  .sched .ch small { display: block; font-weight: 500; color: var(--ok); }
+  .fine { font-size: 12px; color: var(--muted); margin: 16px 0 0; }
   :focus-visible { outline: 3px solid #e0a800; outline-offset: 2px; }
 </style>
 </head>
@@ -131,6 +160,7 @@
   <input class="search" id="search" type="search" placeholder="Search a team" aria-label="Search a team" autocomplete="off">
   <div class="filters" role="group" aria-label="Filter games">
     <button class="chip" id="today" hidden></button>
+    <button class="chip plan-chip" id="open-plan">💰 Season plan</button>
     <button class="chip" data-filter="all" aria-pressed="true">All games</button>
     <button class="chip" data-filter="mine" aria-pressed="false">I can watch</button>
     <button class="chip" data-filter="top25" id="top25" aria-pressed="false">Top 25</button>
@@ -141,6 +171,15 @@
     Some links may be affiliate links. Not affiliated with any network, conference or school.
   </footer>
 </main>
+
+<dialog id="plan"><button class="close" aria-label="Close">✕</button><div class="dlg" id="plan-body"></div></dialog>
+
+<dialog id="picker"><button class="close" aria-label="Close">✕</button><div class="dlg">
+  <h3>Pick a team</h3>
+  <p>We'll find the cheapest way to watch the rest of their season.</p>
+  <input class="search" id="team-q" type="search" placeholder="Search teams" aria-label="Search teams" autocomplete="off">
+  <div class="teamlist" id="team-list"></div>
+</div></dialog>
 
 <dialog id="game"><button class="close" aria-label="Close">✕</button><div class="dlg" id="game-body"></div></dialog>
 

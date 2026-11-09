@@ -94,8 +94,9 @@ const logo = (t, cls = 'logo') => t.logo
   : `<span class="dot" style="background:#${esc(t.color || '888')}"></span>`;
 const rank = c => { const r = c.curatedRank?.current; return r && r <= 25 ? r : null; };
 const isLocal = g => ['Home', 'Away'].includes(g.market?.type);
-const nets = c => [...new Set((c.geoBroadcasts || []).filter(g => !isLocal(g)).map(g => g.media.shortName))];
-const locals = c => [...new Set((c.geoBroadcasts || []).filter(isLocal).map(g => g.media.shortName))];
+const bc = c => (c.geoBroadcasts || c.broadcasts || []).filter(g => g.media); // scoreboard vs team schedule feeds
+const nets = c => [...new Set(bc(c).filter(g => !isLocal(g)).map(g => g.media.shortName))];
+const locals = c => [...new Set(bc(c).filter(isLocal).map(g => g.media.shortName))];
 const sides = c => [...c.competitors].sort((a, b) => (b.homeAway === 'away') - (a.homeAway === 'away'));
 const statusText = (e, long) => {
   const st = e.status.type;
@@ -173,6 +174,8 @@ function showGame(id) {
     <div class="match">${side(away)}<div class="vs">${c.neutralSite ? 'vs' : '@'}</div>${side(home)}</div>
     ${watch ? `<div class="sec"><h4>${st.completed ? 'Aired on' : 'Where to watch'}</h4>${watch}</div>` : ''}
     ${rows.length ? `<div class="sec"><h4>Game info</h4><dl>${rows.map(([k, val]) => `<dt>${k}</dt><dd>${esc(val)}</dd>`).join('')}</dl></div>` : ''}
+    <div class="sec"><h4>Watch the whole season</h4><div class="opts">${[away, home].map(t =>
+      `<button data-plan="${esc(t.team.id)}">Cheapest way to watch ${esc(t.team.shortDisplayName)}</button>`).join('')}</div></div>
     <div class="acts">${st.state === 'pre' ? '<button data-act="cal">📅 Add to calendar</button>' : ''}<button data-act="share">↗ Share</button></div>`;
   if (!$('game').open) $('game').showModal();
 }
@@ -264,6 +267,8 @@ $('game').addEventListener('click', e => {
   const act = e.target.closest('[data-act]')?.dataset.act, game = events.find(x => x.id === openId);
   if (act === 'cal') return addToCalendar(game);
   if (act === 'share') return shareGame(game, e.target.closest('[data-act]'));
+  const pl = e.target.closest('[data-plan]');
+  if (pl) { $('game').close(); return showPlan(pl.dataset.plan); }
   const f = e.target.closest('.follow');
   if (!f) return;
   const id = f.dataset.team;
@@ -285,3 +290,101 @@ if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js');
 
 setSport(sport);
 if (mine === null) openServices();
+
+// ---- Season plan: cheapest way to watch one team's remaining games ----
+const BASE = 'https://site.api.espn.com/apis/site/v2/sports';
+const teamLists = {};
+const money = n => `$${n.toFixed(2)}`;
+
+async function openPicker() {
+  $('team-q').value = '';
+  $('picker').showModal();
+  if (!teamLists[sport]) {
+    $('team-list').innerHTML = '<p class="msg">Loading teams…</p>';
+    try {
+      const d = await (await fetch(`${BASE}/${SPORTS[sport].path}/teams?limit=1000${SPORTS[sport].q}`)).json();
+      teamLists[sport] = d.sports[0].leagues[0].teams.map(({ team: t }) => ({ id: t.id, name: t.displayName, logo: t.logos?.[0]?.href, color: t.color }))
+        .sort((a, b) => (favs.includes(b.id) - favs.includes(a.id)) || a.name.localeCompare(b.name));
+    } catch { $('team-list').innerHTML = '<p class="msg">Couldn\'t load teams. Try again.</p>'; return; }
+  }
+  listTeams();
+}
+
+function listTeams() {
+  const q = $('team-q').value.trim().toLowerCase();
+  const list = (teamLists[sport] || []).filter(t => t.name.toLowerCase().includes(q)).slice(0, 60);
+  $('team-list').innerHTML = list.length ? list.map(t => `<button data-team-pick="${esc(t.id)}">${logo(t)}<span>${esc(t.name)}</span>${favs.includes(t.id) ? '<span class="rk">★</span>' : ''}</button>`).join('')
+    : '<p class="msg">No teams match.</p>';
+}
+
+async function showPlan(teamId) {
+  $('plan-body').innerHTML = '<p class="msg">Checking the schedule…</p>';
+  if (!$('plan').open) $('plan').showModal();
+  let d;
+  try { d = await (await fetch(`${BASE}/${SPORTS[sport].path}/teams/${teamId}/schedule`)).json(); }
+  catch { $('plan-body').innerHTML = '<p class="msg">Couldn\'t load the schedule. Try again.</p>'; return; }
+  const team = d.team, logoT = { logo: team.logo || team.logos?.[0]?.href, color: team.color };
+  const games = (d.events || []).filter(e => e.competitions[0].status.type.state === 'pre');
+  const p = cheapestPlan(games.map(e => nets(e.competitions[0])), mine || []);
+  // The team's own local channel (mostly NBA): broadcasts tagged with this team's home/away side.
+  const ownLocal = e => {
+    const c = e.competitions[0], side = c.competitors.find(x => x.id === team.id)?.homeAway;
+    return [...new Set(bc(c).filter(g => g.market?.type?.toLowerCase() === side).map(g => g.media.shortName))];
+  };
+  const localOnly = games.filter(e => !nets(e.competitions[0]).length && ownLocal(e).length);
+  const localNames = [...new Set(localOnly.flatMap(ownLocal))].slice(0, 2);
+  const tba = p.noTv - localOnly.length;
+  const coveredBy = n => {
+    if (whereToWatch(n, []).free) return whereToWatch(n, []).free;
+    const hit = p.plan.find(x => whereToWatch(n, [x.id]).yours.length);
+    return hit ? svcName[hit.id] : '';
+  };
+
+  const gamesWithTv = p.coverable + p.free === 1 ? 'the 1 game' : `all ${p.coverable + p.free} games`;
+  let body;
+  if (!games.length) body = '<p class="no">No games left on the schedule.</p>';
+  else if (!p.coverable && !p.free) body = `<p class="no">None of the remaining games have a national TV channel yet. Channels are usually announced 1–2 weeks ahead, so check back.</p>`;
+  else if (p.plan.every(x => x.owned)) body = `<div class="best"><div class="amt">✓ You're set</div><p>Your services cover ${gamesWithTv} that ${p.coverable + p.free === 1 ? 'has' : 'have'} a TV channel.</p></div>`;
+  else body = `<div class="best">
+      <div class="lbl">Cheapest plan</div><div class="amt">${p.monthly ? `${money(p.monthly)}<small>/mo</small>` : 'Free'}</div>
+      <p>Covers ${gamesWithTv} with a TV channel${p.yoursCover ? `, using what you already have` : ''}.</p>
+      ${p.plan.map(x => `<div class="pl"><span><b>${esc(svcName[x.id])}</b><small>${x.covers} game${x.covers === 1 ? '' : 's'}</small></span>
+        ${x.owned ? '<span class="have">You have it</span>' : svcUrl[x.id]
+          ? `<a href="${esc(svcUrl[x.id])}" target="_blank" rel="sponsored noopener">${x.price ? `${money(x.price)}/mo` : 'Free'} ›</a>` : ''}</div>`).join('')}
+    </div>
+    ${p.plan.filter(x => !x.owned).length > 1 && p.singles.length ? `<div class="sec"><h4>Or just one ${p.yoursCover ? 'more ' : ''}service</h4><div class="opts">${p.singles.map(x =>
+      `<a href="${esc(svcUrl[x.id])}" target="_blank" rel="sponsored noopener"><span>${esc(svcName[x.id])} · ${x.covers} of ${p.coverable} games</span><span class="pr">${money(x.price)}/mo</span></a>`).join('')}</div></div>` : ''}`;
+
+  const notes = [
+    p.free && `${p.free} game${p.free === 1 ? ' is' : 's are'} free on The CW app.`,
+    localOnly.length && `${localOnly.length} game${localOnly.length === 1 ? ' is' : 's are'} only on local TV (${localNames.map(esc).join(', ')}). In the team's area, get it through cable, satellite or the channel's own app.${sport === 'nba' ? ' Elsewhere, use NBA League Pass.' : ''}`,
+    tba > 0 && `${tba} game${tba === 1 ? ' has' : 's have'} no TV channel announced yet. We'll include ${tba === 1 ? 'it' : 'them'} once announced.`,
+  ].filter(Boolean);
+
+  const row = e => {
+    const c = e.competitions[0], me = c.competitors.find(x => x.id === team.id), opp = c.competitors.find(x => x.id !== team.id);
+    const n = nets(c), by = n.length ? coveredBy(n) : '';
+    return `<li><span class="when">${fmtDay(e.date, { month: 'short', day: 'numeric' })}</span>
+      <span class="opp">${me?.homeAway === 'away' ? '@' : 'vs'} ${esc(opp?.team.shortDisplayName || 'TBD')}</span>
+      <span class="ch">${esc(n.join(', ') || (ownLocal(e).length ? 'Local TV' : 'TBA'))}${by ? `<small>${esc(by)}</small>` : ''}</span></li>`;
+  };
+
+  $('plan-body').innerHTML = `
+    <div class="plan-head">${logo(logoT, 'big')}<div><h3>Cheapest way to watch ${esc(team.displayName)}</h3>
+      <p>${games.length} game${games.length === 1 ? '' : 's'} left${mine?.length ? '' : ' · <button class="link" data-act="svc">add your services</button> to count what you have'}</p></div></div>
+    ${body}
+    ${notes.length ? `<ul class="notes">${notes.map(x => `<li>${x}</li>`).join('')}</ul>` : ''}
+    ${games.length ? `<details class="sec"><summary>See all ${games.length} games</summary><ul class="sched">${games.map(row).join('')}</ul></details>` : ''}
+    <p class="fine">Prices as of ${PRICES_AS_OF}, before taxes and promos. A TV antenna is a one-time buy (about $30). Confirm channels with each provider.</p>`;
+}
+
+for (const id of ['plan', 'picker']) $(id).addEventListener('click', e => {
+  if (e.target === $(id) || e.target.closest('.close')) return $(id).close();
+  if (e.target.closest('[data-act="svc"]')) { $(id).close(); openServices(); }
+});
+$('team-q').addEventListener('input', listTeams);
+$('team-list').addEventListener('click', e => {
+  const b = e.target.closest('[data-team-pick]');
+  if (b) { $('picker').close(); showPlan(b.dataset.teamPick); }
+});
+$('open-plan').addEventListener('click', openPicker);
