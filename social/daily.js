@@ -44,7 +44,21 @@ function caption(sport, events) {
   ].join('\n');
 }
 
+// Delete drafts and generated images more than 5 days old.
+function cleanup() {
+  const cutoff = Date.now() - 5 * 864e5;
+  for (const dir of ['drafts', 'out']) {
+    const base = path.join(__dirname, dir);
+    if (!fs.existsSync(base)) continue;
+    for (const name of fs.readdirSync(base)) {
+      const p = path.join(base, name);
+      if (fs.statSync(p).birthtimeMs < cutoff) { fs.rmSync(p, { recursive: true, force: true }); console.log(`cleanup: removed ${dir}/${name}`); }
+    }
+  }
+}
+
 (async () => {
+  cleanup();
   const outDir = path.join(__dirname, 'drafts', `${date.slice(0, 4)}-${date.slice(4, 6)}-${date.slice(6)}`);
   fs.rmSync(outDir, { recursive: true, force: true });
   let n = 0;
