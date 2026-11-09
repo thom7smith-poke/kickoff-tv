@@ -1,0 +1,107 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Kickoff TV</title>
+<meta name="description" content="Where to watch every college football game, matched to the services you already have.">
+<meta name="theme-color" content="#0f3d2e">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icon-192.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<style>
+  :root {
+    --bg: #f4f5f2; --card: #fff; --text: #16191a; --muted: #636b6e; --line: #e3e6e1;
+    --brand: #0f3d2e; --brand-ink: #fff; --ok: #157a3c; --ok-bg: #e4f4ea; --live: #c62828; --chip: #eef0ec;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg: #0e1211; --card: #181d1c; --text: #eef1ef; --muted: #9aa4a1; --line: #29302e;
+      --brand: #1d6b4f; --ok: #5fd08a; --ok-bg: #173325; --live: #ff6b6b; --chip: #232a28; }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text);
+    font: 16px/1.4 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; -webkit-tap-highlight-color: transparent; }
+  button, input { font: inherit; color: inherit; }
+  button { cursor: pointer; }
+  header { position: sticky; top: 0; z-index: 5; background: var(--brand); color: var(--brand-ink);
+    padding: calc(env(safe-area-inset-top) + 10px) 16px 10px; }
+  .bar { display: flex; align-items: center; gap: 8px; max-width: 720px; margin: 0 auto; }
+  h1 { font-size: 20px; margin: 0; flex: 1; letter-spacing: -.01em; }
+  .hbtn { background: rgba(255,255,255,.14); border: 0; border-radius: 999px; padding: 8px 14px; color: #fff; font-weight: 600; font-size: 14px; }
+  .week { display: flex; align-items: center; justify-content: space-between; max-width: 720px; margin: 8px auto 0; }
+  .week button { background: none; border: 0; color: #fff; font-size: 22px; padding: 4px 14px; }
+  .week button:disabled { opacity: .3; }
+  .week span { font-weight: 600; }
+  main { max-width: 720px; margin: 0 auto; padding: 12px 16px calc(env(safe-area-inset-bottom) + 40px); }
+  .search { width: 100%; padding: 12px 14px; border-radius: 12px; border: 1px solid var(--line); background: var(--card); }
+  .filters { display: flex; gap: 8px; margin: 10px 0 4px; overflow-x: auto; }
+  .chip { border: 1px solid var(--line); background: var(--chip); border-radius: 999px; padding: 7px 14px; white-space: nowrap; font-size: 14px; }
+  .chip[aria-pressed="true"] { background: var(--brand); color: #fff; border-color: var(--brand); }
+  h2 { font-size: 13px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); margin: 22px 0 8px; }
+  .game { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 12px 14px; margin-bottom: 10px; }
+  .top { display: flex; justify-content: space-between; font-size: 13px; color: var(--muted); margin-bottom: 6px; }
+  .top .live { color: var(--live); font-weight: 700; }
+  .team { display: flex; align-items: center; gap: 8px; padding: 3px 0; }
+  .dot { width: 10px; height: 10px; border-radius: 50%; flex: none; }
+  .team .name { flex: 1; font-weight: 600; }
+  .rank { color: var(--muted); font-size: 13px; font-weight: 600; margin-right: 2px; }
+  .rec { color: var(--muted); font-size: 13px; font-weight: 400; }
+  .score { font-weight: 700; font-variant-numeric: tabular-nums; }
+  .star { background: none; border: 0; padding: 4px 6px; font-size: 18px; color: var(--muted); line-height: 1; }
+  .star[aria-pressed="true"] { color: #e0a800; }
+  .watch { margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--line); font-size: 14px; }
+  .net { display: inline-block; font-weight: 700; background: var(--chip); border-radius: 6px; padding: 2px 8px; margin-right: 6px; }
+  .yes { display: inline-block; margin-top: 6px; color: var(--ok); background: var(--ok-bg); border-radius: 8px; padding: 4px 10px; font-weight: 600; }
+  .get { margin-top: 6px; color: var(--muted); }
+  .get a { color: var(--text); font-weight: 600; }
+  .empty, .msg { text-align: center; color: var(--muted); padding: 40px 0; }
+  dialog { border: 0; border-radius: 18px; padding: 20px; width: min(520px, calc(100% - 32px)); background: var(--card); color: var(--text); }
+  dialog::backdrop { background: rgba(0,0,0,.5); }
+  dialog h3 { margin: 0 0 4px; font-size: 20px; }
+  dialog p { margin: 0 0 14px; color: var(--muted); font-size: 14px; }
+  .svc { display: flex; flex-wrap: wrap; gap: 8px; }
+  .done { width: 100%; margin-top: 18px; padding: 13px; border: 0; border-radius: 12px; background: var(--brand); color: #fff; font-weight: 700; }
+  footer { font-size: 12px; color: var(--muted); text-align: center; margin-top: 30px; }
+  :focus-visible { outline: 3px solid #e0a800; outline-offset: 2px; }
+</style>
+</head>
+<body>
+<header>
+  <div class="bar">
+    <h1>🏈 Kickoff TV</h1>
+    <button class="hbtn" id="install" hidden>Install</button>
+    <button class="hbtn" id="open-services">My services</button>
+  </div>
+  <div class="week">
+    <button id="prev" aria-label="Previous week">‹</button>
+    <span id="week-label">Loading…</span>
+    <button id="next" aria-label="Next week">›</button>
+  </div>
+</header>
+<main>
+  <input class="search" id="search" type="search" placeholder="Search a team" aria-label="Search a team" autocomplete="off">
+  <div class="filters" role="group" aria-label="Filter games">
+    <button class="chip" data-filter="all" aria-pressed="true">All games</button>
+    <button class="chip" data-filter="mine" aria-pressed="false">I can watch</button>
+    <button class="chip" data-filter="top25" aria-pressed="false">Top 25</button>
+  </div>
+  <div id="games" aria-live="polite"><p class="msg">Loading games…</p></div>
+  <footer>
+    Channel and service listings change. Confirm with your provider.<br>
+    Some links may be affiliate links. Not affiliated with any network, conference or school.
+  </footer>
+</main>
+
+<dialog id="services">
+  <h3>What do you watch with?</h3>
+  <p>Pick everything you have. We'll show which games you can watch. On iPhone, tap Share, then Add to Home Screen, to install.</p>
+  <div class="svc" id="svc-list"></div>
+  <button class="done" id="svc-done">Done</button>
+</dialog>
+
+<script src="watch.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
