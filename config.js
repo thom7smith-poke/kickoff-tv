@@ -3,7 +3,7 @@
 const SITE = {
   name: 'KikoffTV',
   tagline: 'Where to watch every game',
-  url: 'thom7smith-poke.github.io/kickoff-tv',
+  url: 'kikofftv.com',
 };
 
 if (typeof module !== 'undefined') module.exports = SITE;
