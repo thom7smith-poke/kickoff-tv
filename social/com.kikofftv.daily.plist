@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!-- Runs social/daily.js every morning at 7:30 (or when the Mac wakes, if it was asleep). -->
+<plist version="1.0">
+<dict>
+  <key>Label</key><string>com.kikofftv.daily</string>
+  <key>ProgramArguments</key>
+  <array><string>/opt/homebrew/bin/node</string><string>/Users/thomassmith/cfb-watch/social/daily.js</string></array>
+  <key>WorkingDirectory</key><string>/Users/thomassmith/cfb-watch</string>
+  <key>EnvironmentVariables</key><dict><key>PATH</key><string>/opt/homebrew/bin:/usr/bin:/bin</string></dict>
+  <key>StartCalendarInterval</key><dict><key>Hour</key><integer>7</integer><key>Minute</key><integer>30</integer></dict>
+  <key>StandardOutPath</key><string>/Users/thomassmith/cfb-watch/social/daily.log</string>
+  <key>StandardErrorPath</key><string>/Users/thomassmith/cfb-watch/social/daily.log</string>
+</dict>
+</plist>
