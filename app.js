@@ -98,7 +98,7 @@ const statusText = (e, long) => {
   return st.state === 'in' ? `LIVE · ${st.shortDetail}` : st.shortDetail;
 };
 
-function gameRow(e) {
+function gameRow(e, showDay) {
   const c = e.competitions[0], st = e.status.type, n = nets(c);
   const w = whereToWatch(n, mine || []);
   const ok = w.yours.length || w.free;
@@ -106,7 +106,7 @@ function gameRow(e) {
       <span class="nm">${rank(t) ? `<span class="rk">${rank(t)}</span>` : ''}${esc(t.team.shortDisplayName)}</span>
       ${st.state !== 'pre' ? `<span class="sc">${esc(t.score)}</span>` : ''}</span>`;
   return `<button class="game" data-id="${esc(e.id)}" aria-label="${esc(e.name)}, ${esc(statusText(e))}, ${esc(n.join(', ') || 'TV to be announced')}">
-    <span class="time${st.state === 'in' ? ' live' : ''}">${st.state === 'in' ? 'LIVE' : esc(statusText(e))}</span>
+    <span class="time${st.state === 'in' ? ' live' : ''}">${showDay && st.state === 'pre' ? `${fmtDay(e.date, { weekday: 'short' })}<br>` : ''}${st.state === 'in' ? 'LIVE' : esc(statusText(e))}</span>
     <span class="teams">${sides(c).map(team).join('')}</span>
     <span class="tv${ok ? ' ok' : ''}">${ok ? '✓ ' : ''}${esc(n[0] || (locals(c).length ? 'Local TV' : 'TBA'))}${n.length > 1 ? ` +${n.length - 1}` : ''}</span>
   </button>`;
@@ -173,13 +173,14 @@ function render() {
 
   if (!list.length) { $('games').innerHTML = `<p class="empty">${filter === 'mine' && !mine?.length ? 'Pick your services to see what you can watch.' : 'No games match.'}</p>`; return; }
   const day = e => fmtDay(e.date, { weekday: 'long', month: 'short', day: 'numeric' });
-  const groups = [['Your teams', list.filter(isFav)]];
-  for (const e of list.filter(e => !isFav(e))) {
+  const ranked = e => e.competitions[0].competitors.some(rank);
+  const groups = [['Your teams', list.filter(isFav)], ['Top 25', list.filter(e => !isFav(e) && ranked(e))]];
+  for (const e of list.filter(e => !isFav(e) && !ranked(e))) {
     const g = groups.find(([k]) => k === day(e));
     g ? g[1].push(e) : groups.push([day(e), [e]]);
   }
   $('games').innerHTML = groups.filter(([, es]) => es.length)
-    .map(([k, es]) => `<h2>${esc(k)}</h2><div class="day">${es.map(gameRow).join('')}</div>`).join('');
+    .map(([k, es]) => `<h2>${esc(k)}</h2><div class="day">${es.map(e => gameRow(e, k === 'Your teams' || k === 'Top 25')).join('')}</div>`).join('');
 }
 
 function openServices() {
