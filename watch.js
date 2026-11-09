@@ -64,4 +64,22 @@ function whereToWatch(networks, mine) {
   };
 }
 
-if (typeof module !== 'undefined') module.exports = { SERVICES, NETWORKS, whereToWatch };
+// Who covered and over/under from the pre-game line. details: "JAX -9.5" or "EVEN"; teams: [{abbr, name, score}].
+function lineResult(details, overUnder, teams) {
+  const out = {}, [a, b] = teams;
+  const covered = (fav, dog, spread) => {
+    const d = fav.score - dog.score + spread;
+    return d > 0 ? `${fav.name} covered` : d < 0 ? `${dog.name} covered` : 'Push';
+  };
+  const m = /^(\S+)\s+(-?[\d.]+)$/.exec(details || '');
+  const fav = m && teams.find(t => t.abbr === m[1]);
+  if (fav) out.spread = covered(fav, teams.find(t => t !== fav), Number(m[2]));
+  else if (/^(even|pk|pick)/i.test(details || '')) out.spread = covered(a, b, 0);
+  if (overUnder) {
+    const total = a.score + b.score;
+    out.total = `${total > overUnder ? 'Over' : total < overUnder ? 'Under' : 'Push'} (${total} pts)`;
+  }
+  return out;
+}
+
+if (typeof module !== 'undefined') module.exports = { SERVICES, NETWORKS, whereToWatch, lineResult };

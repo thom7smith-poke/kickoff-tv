@@ -103,6 +103,9 @@
   .dlg h3 { margin: 0 0 4px; font-size: 20px; }
   .dlg p { margin: 0 0 14px; color: var(--muted); font-size: 14px; }
   .done { width: 100%; margin-top: 18px; padding: 13px; border: 0; border-radius: 12px; background: var(--brand); color: #fff; font-weight: 700; }
+  .acts { display: flex; gap: 8px; margin-top: 18px; }
+  .acts button { flex: 1; border: 1px solid var(--line); background: var(--chip); border-radius: 12px; padding: 11px; font-weight: 600; font-size: 14px; }
+  #today { background: var(--card); border-color: var(--brand); color: var(--text); font-weight: 600; }
   :focus-visible { outline: 3px solid #e0a800; outline-offset: 2px; }
 </style>
 </head>
@@ -127,6 +130,7 @@
 <main>
   <input class="search" id="search" type="search" placeholder="Search a team" aria-label="Search a team" autocomplete="off">
   <div class="filters" role="group" aria-label="Filter games">
+    <button class="chip" id="today" hidden></button>
     <button class="chip" data-filter="all" aria-pressed="true">All games</button>
     <button class="chip" data-filter="mine" aria-pressed="false">I can watch</button>
     <button class="chip" data-filter="top25" id="top25" aria-pressed="false">Top 25</button>

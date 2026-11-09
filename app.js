@@ -13,7 +13,7 @@ const save = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } cat
 let mine = load('services', null);
 let favs = load('favs', []);
 let sport = SPORTS[load('sport')] ? load('sport') : 'cfb';
-let filter = 'all', weeks = [], weekIdx = -1, day = null, events = [], timer = null, openId = null;
+let filter = 'all', weeks = [], weekIdx = -1, day = null, homeNav = null, events = [], timer = null, openId = null;
 
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => `&#${c.charCodeAt(0)};`);
 const fmtDay = (d, o) => new Date(d).toLocaleDateString([], o);
@@ -36,10 +36,12 @@ async function fetchGames(quiet) {
     const d = await res.json();
     if (want !== sport) return; // user switched sport mid-load
     if (sp.daily && !day) day = (d.day?.date || new Date().toISOString().slice(0, 10)).replace(/-/g, '');
+    if (sp.daily && !homeNav) homeNav = day;
     if (!sp.daily && !weeks.length) {
       weeks = d.leagues[0].calendar.filter(s => ['2', '3'].includes(s.value) && s.entries)
         .flatMap(s => s.entries.map(e => ({ type: s.value, week: e.value, label: e.label, start: e.startDate, end: e.endDate })));
       weekIdx = weeks.findIndex(x => x.type == d.season.type && x.week == d.week?.number);
+      homeNav = weekIdx;
     }
     events = d.events;
     render();
@@ -53,6 +55,9 @@ async function fetchGames(quiet) {
 }
 
 function navLabel() {
+  const away = homeNav !== null && (SPORTS[sport].daily ? day !== homeNav : weekIdx !== homeNav);
+  $('today').hidden = !away;
+  $('today').textContent = SPORTS[sport].daily ? '↺ Today' : '↺ This week';
   const short = d => fmtDay(d, { month: 'short', day: 'numeric' });
   if (SPORTS[sport].daily) {
     const today = ymd(new Date(Date.now() - new Date().getTimezoneOffset() * 60000));
@@ -75,7 +80,7 @@ function step(n) {
 
 function setSport(s) {
   sport = s; save('sport', s);
-  weeks = []; weekIdx = -1; day = null; events = [];
+  weeks = []; weekIdx = -1; day = null; homeNav = null; events = [];
   document.querySelectorAll('[data-sport]').forEach(b => b.setAttribute('aria-selected', b.dataset.sport === s));
   $('top25').hidden = s !== 'cfb';
   if (filter === 'top25' && s !== 'cfb') document.querySelector('[data-filter="all"]').click();
@@ -139,13 +144,26 @@ function showGame(id) {
   if (!w.yours.length && opts.length) watch += `<div class="opts">${opts.map(id =>
     `<a href="${esc(svcUrl[id])}" target="_blank" rel="sponsored noopener">Watch with ${esc(svcName[id])}</a>`).join('')}</div>`;
   if (w.unknown.length) watch += `<p class="no">Check ${w.unknown.map(esc).join(', ')} for how to stream.</p>`;
+  if (st.completed) watch = n.length ? `<div class="nets">${n.map(x => `<span>${esc(x)}</span>`).join('')}</div>` : loc.length ? `<p class="no">Local TV: ${loc.map(esc).join(', ')}</p>` : '';
 
-  const v = c.venue, odds = c.odds?.[0];
+  // The scoreboard drops odds once a game starts; the game summary keeps the last pre-game line.
+  if (!c.odds?.length && !extra.has(id)) {
+    extra.set(id, 'loading');
+    fetch(`https://site.api.espn.com/apis/site/v2/sports/${SPORTS[sport].path}/summary?event=${id}`)
+      .then(r => r.json()).then(s => { extra.set(id, s.pickcenter?.[0] || null); if (openId === id) showGame(id); })
+      .catch(() => extra.delete(id));
+  }
+  const pending = extra.get(id) === 'loading';
+  const v = c.venue, odds = c.odds?.[0] || (pending ? null : extra.get(id)), start = sport === 'nba' ? 'Tipoff' : 'Kickoff';
+  const res = st.completed && odds && lineResult(odds.details, odds.overUnder,
+    [away, home].map(t => ({ abbr: t.team.abbreviation, name: t.team.shortDisplayName, score: Number(t.score) })));
   const rows = [
-    ['Kickoff', `${fmtDay(e.date, { weekday: 'short', month: 'short', day: 'numeric' })}, ${fmtTime(e.date)}`],
+    [start, `${fmtDay(e.date, { weekday: 'short', month: 'short', day: 'numeric' })}, ${fmtTime(e.date)}`],
     ['Stadium', v && (v.fullName?.includes(v.address?.city) ? v.fullName
       : [v.fullName, [v.address?.city, v.address?.state].filter(Boolean).join(', ')].filter(Boolean).join(' · '))],
-    ['Line', odds && [odds.details, odds.overUnder && `O/U ${odds.overUnder}`].filter(Boolean).join(' · ')],
+    [st.state === 'pre' ? 'Line' : `Line at ${start.toLowerCase()}`,
+      odds ? [odds.details, odds.overUnder && `O/U ${odds.overUnder}`].filter(Boolean).join(' · ') : pending ? 'Loading…' : null],
+    ['Result', res && [res.spread, res.total].filter(Boolean).join(' · ')],
     ['Weather', e.weather && [e.weather.displayValue, e.weather.temperature && `${e.weather.temperature}°`].filter(Boolean).join(', ')],
   ].filter(([, val]) => val);
 
@@ -153,9 +171,38 @@ function showGame(id) {
     <div class="status${st.state === 'in' ? ' live' : ''}">${esc(statusText(e, true))}</div>
     ${c.notes?.[0]?.headline ? `<div class="note">${esc(c.notes[0].headline)}</div>` : ''}
     <div class="match">${side(away)}<div class="vs">${c.neutralSite ? 'vs' : '@'}</div>${side(home)}</div>
-    <div class="sec"><h4>Where to watch</h4>${watch}</div>
-    ${rows.length ? `<div class="sec"><h4>Game info</h4><dl>${rows.map(([k, val]) => `<dt>${k}</dt><dd>${esc(val)}</dd>`).join('')}</dl></div>` : ''}`;
+    ${watch ? `<div class="sec"><h4>${st.completed ? 'Aired on' : 'Where to watch'}</h4>${watch}</div>` : ''}
+    ${rows.length ? `<div class="sec"><h4>Game info</h4><dl>${rows.map(([k, val]) => `<dt>${k}</dt><dd>${esc(val)}</dd>`).join('')}</dl></div>` : ''}
+    <div class="acts">${st.state === 'pre' ? '<button data-act="cal">📅 Add to calendar</button>' : ''}<button data-act="share">↗ Share</button></div>`;
   if (!$('game').open) $('game').showModal();
+}
+
+const extra = new Map(); // game id -> pre-game line from the summary feed ('loading' while fetching, null if none)
+
+function addToCalendar(e) {
+  const c = e.competitions[0], start = new Date(e.date);
+  const end = new Date(start.getTime() + (sport === 'nba' ? 2.5 : 3.5) * 36e5);
+  const t = d => d.toISOString().replace(/[-:]/g, '').replace(/\.\d+/, '');
+  const ic = s => String(s).replace(/[\\,;]/g, m => `\\${m}`);
+  const tv = [...nets(c), ...locals(c)].join(', ') || 'TV to be announced';
+  const ics = ['BEGIN:VCALENDAR', 'VERSION:2.0', `PRODID:-//${SITE.name}//EN`, 'BEGIN:VEVENT', `UID:${e.id}@${SITE.url}`,
+    `DTSTAMP:${t(new Date())}`, `DTSTART:${t(start)}`, `DTEND:${t(end)}`, `SUMMARY:${ic(`${e.shortName} on ${tv}`)}`,
+    `LOCATION:${ic(c.venue?.fullName || '')}`, `DESCRIPTION:${ic(`Watch on ${tv}. https://${SITE.url}`)}`, 'END:VEVENT', 'END:VCALENDAR'].join('\r\n');
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([ics], { type: 'text/calendar' }));
+  a.download = `${e.shortName.replace(/\W+/g, '-')}.ics`;
+  a.click();
+}
+
+async function shareGame(e, btn) {
+  const c = e.competitions[0], [away, home] = sides(c);
+  const score = e.status.type.state === 'pre' ? '' : ` ${away.team.abbreviation} ${away.score}, ${home.team.abbreviation} ${home.score} ·`;
+  const text = `${e.shortName} ·${score} ${statusText(e, true)} · ${nets(c).join(', ') || 'Local TV'}`;
+  const url = location.href.split('#')[0];
+  try {
+    if (navigator.share) await navigator.share({ title: SITE.name, text, url });
+    else { await navigator.clipboard.writeText(`${text}\n${url}`); btn.textContent = '✓ Copied'; }
+  } catch {} // user cancelled the share sheet
 }
 
 const canWatch = e => { const w = whereToWatch(nets(e.competitions[0]), mine || []); return w.yours.length > 0 || !!w.free; };
@@ -174,8 +221,10 @@ function render() {
   if (!list.length) { $('games').innerHTML = `<p class="empty">${filter === 'mine' && !mine?.length ? 'Pick your services to see what you can watch.' : 'No games match.'}</p>`; return; }
   const day = e => fmtDay(e.date, { weekday: 'long', month: 'short', day: 'numeric' });
   const ranked = e => e.competitions[0].competitors.some(rank);
-  const groups = [['Your teams', list.filter(isFav)], ['Top 25', list.filter(e => !isFav(e) && ranked(e))]];
-  for (const e of list.filter(e => !isFav(e) && !ranked(e))) {
+  const live = e => e.status.type.state === 'in';
+  const rest = list.filter(e => !live(e));
+  const groups = [['Live now', list.filter(live)], ['Your teams', rest.filter(isFav)], ['Top 25', rest.filter(e => !isFav(e) && ranked(e))]];
+  for (const e of rest.filter(e => !isFav(e) && !ranked(e))) {
     const g = groups.find(([k]) => k === day(e));
     g ? g[1].push(e) : groups.push([day(e), [e]]);
   }
@@ -212,6 +261,9 @@ document.querySelector('.filters').addEventListener('click', e => {
 $('games').addEventListener('click', e => { const b = e.target.closest('.game'); if (b) showGame(b.dataset.id); });
 $('game').addEventListener('click', e => {
   if (e.target === $('game') || e.target.closest('.close')) return $('game').close(); // backdrop or ✕
+  const act = e.target.closest('[data-act]')?.dataset.act, game = events.find(x => x.id === openId);
+  if (act === 'cal') return addToCalendar(game);
+  if (act === 'share') return shareGame(game, e.target.closest('[data-act]'));
   const f = e.target.closest('.follow');
   if (!f) return;
   const id = f.dataset.team;
@@ -221,6 +273,7 @@ $('game').addEventListener('click', e => {
   showGame(openId);
 });
 $('game').addEventListener('close', () => { openId = null; });
+$('today').addEventListener('click', () => { if (SPORTS[sport].daily) day = homeNav; else weekIdx = homeNav; fetchGames(); });
 $('prev').addEventListener('click', () => step(-1));
 $('next').addEventListener('click', () => step(1));
 $('sports').addEventListener('click', e => { const b = e.target.closest('[data-sport]'); if (b && b.dataset.sport !== sport) setSport(b.dataset.sport); });
