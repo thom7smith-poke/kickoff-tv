@@ -2,7 +2,7 @@
 // Writes social/out/<sport>-<date>.png (1080x1350). Sports with no games that day are skipped.
 const fs = require('fs'), path = require('path'), { execFileSync } = require('child_process');
 
-const SITE = 'thom7smith-poke.github.io/kickoff-tv'; // change if you buy a domain
+const SITE = require('../config.js'); // name and address live in config.js
 const CHROME = '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
 const MAX_ROWS = 8;
 const SPORTS = {
@@ -76,7 +76,7 @@ function html(sport, top, more) {
   </style>
   <div class="k">WHERE TO WATCH</div><h1>${esc(sport.name)}</h1><div class="d">${esc(day)} · Times ET</div>
   <div class="list">${rows}${more > 0 ? `<div class="more">+${more} more games today</div>` : ''}</div>
-  <footer>🏈 Kickoff TV<span>${SITE}</span></footer>`;
+  <footer>🏈 ${esc(SITE.name)}<span>${esc(SITE.url)}</span></footer>`;
 }
 
 (async () => {

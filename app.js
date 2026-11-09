@@ -8,70 +8,112 @@ const save = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } cat
 
 let mine = load('services', null);
 let favs = load('favs', []);
-let filter = 'all', weeks = [], weekIdx = -1, events = [], timer = null;
+let filter = 'all', weeks = [], weekIdx = -1, events = [], timer = null, openId = null;
 
-const esc = s => String(s).replace(/[&<>"']/g, c => `&#${c.charCodeAt(0)};`);
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => `&#${c.charCodeAt(0)};`);
+const fmtDay = (d, o) => new Date(d).toLocaleDateString([], o);
+const fmtTime = d => new Date(d).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
 
-async function fetchWeek(w) {
-  $('games').innerHTML = '<p class="msg">Loading games…</p>';
+document.title = `${SITE.name}: ${SITE.tagline}`;
+$('site-name').textContent = `🏈 ${SITE.name}`;
+
+async function fetchWeek(w, quiet) {
+  if (!quiet) $('games').innerHTML = '<p class="msg">Loading games…</p>';
   try {
     const res = await fetch(w ? `${API}&seasontype=${w.type}&week=${w.week}` : API);
     if (!res.ok) throw new Error(res.status);
     const d = await res.json();
     if (!weeks.length) {
       weeks = d.leagues[0].calendar.filter(s => s.value !== '4')
-        .flatMap(s => s.entries.map(e => ({ type: s.value, week: e.value, label: e.label })));
+        .flatMap(s => s.entries.map(e => ({ type: s.value, week: e.value, label: e.label, start: e.startDate, end: e.endDate })));
       weekIdx = weeks.findIndex(x => x.type == d.season.type && x.week == d.week?.number);
     }
     events = d.events;
     render();
+    if (openId) showGame(openId);
     clearInterval(timer);
-    if (events.some(e => e.status.type.state === 'in')) timer = setInterval(() => fetchWeek(weeks[weekIdx]), 60000);
-  } catch (err) {
-    console.error(err);
-    $('games').innerHTML = '<p class="msg">Couldn\'t load games. Check your connection and try again.</p>';
+    if (events.some(e => e.status.type.state === 'in')) timer = setInterval(() => fetchWeek(weeks[weekIdx], true), 60000);
+  } catch {
+    if (!quiet) $('games').innerHTML = '<p class="msg">Couldn\'t load games. Check your connection and try again.</p>';
   }
-  const w2 = weeks[weekIdx];
-  $('week-label').textContent = w2 ? w2.label : 'This week';
+  const cur = weeks[weekIdx];
+  $('week-label').innerHTML = cur
+    ? `${esc(cur.label)}<small>${fmtDay(cur.start, { month: 'short', day: 'numeric' })} – ${fmtDay(new Date(cur.end) - 1, { month: 'short', day: 'numeric' })}</small>`
+    : 'This week';
   $('prev').disabled = weekIdx <= 0;
   $('next').disabled = weekIdx < 0 || weekIdx >= weeks.length - 1;
 }
 
-function teamRow(c, pre) {
-  const t = c.team, rank = c.curatedRank?.current;
-  const fav = favs.includes(t.id);
-  return `<div class="team">
-    ${t.logo ? `<picture><source srcset="${esc(t.logo.replace("/500/", "/500-dark/"))}" media="(prefers-color-scheme: dark)"><img class="logo" src="${esc(t.logo)}" alt="" width="28" height="28" loading="lazy"></picture>`
-      : `<span class="dot" style="background:#${esc(t.color || "888")}"></span>`}
-    <span class="name">${rank && rank <= 25 ? `<span class="rank">${rank}</span>` : ''}${esc(t.shortDisplayName)}
-      <span class="rec">${esc(c.records?.[0]?.summary || '')}</span></span>
-    ${!pre && c.score !== undefined ? `<span class="score">${esc(c.score)}</span>` : ''}
-    <button class="star" data-team="${esc(t.id)}" aria-pressed="${fav}" aria-label="${fav ? 'Unfavorite' : 'Favorite'} ${esc(t.shortDisplayName)}">${fav ? '★' : '☆'}</button>
-  </div>`;
-}
-
-function gameCard(e) {
-  const c = e.competitions[0], st = e.status.type;
-  const nets = [...new Set((c.geoBroadcasts || []).map(g => g.media.shortName))];
-  const w = whereToWatch(nets, mine || []);
-  const time = st.state === 'pre'
-    ? new Date(e.date).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })
-    : st.state === 'in' ? `<span class="live">● LIVE · ${esc(st.shortDetail)}</span>` : esc(st.shortDetail);
-  const teams = [...c.competitors].sort((a, b) => (a.homeAway === 'away' ? -1 : 1));
-  let watch = nets.length ? nets.map(n => `<span class="net">${esc(n)}</span>`).join('') : '<span class="net">TV TBA</span>';
-  if (w.yours.length) watch += `<div class="yes">✓ Watch on ${w.yours.map(id => esc(svcName[id])).join(', ')}</div>`;
-  else if (w.free) watch += `<div class="yes">✓ ${esc(w.free)}</div>`;
-  else if (w.options.length) watch += `<div class="get">Not on your services. Get it with ${w.options.filter(id => svcUrl[id]).slice(0, 3)
-      .map(id => `<a href="${esc(svcUrl[id])}" target="_blank" rel="sponsored noopener">${esc(svcName[id])}</a>`).join(' · ')}</div>`;
-  return `<article class="game"><div class="top"><span>${time}</span><span>${esc(c.venue?.address?.city || '')}</span></div>
-    ${teams.map(t => teamRow(t, st.state === "pre")).join('')}<div class="watch">${watch}</div></article>`;
-}
-
-const canWatch = e => {
-  const nets = (e.competitions[0].geoBroadcasts || []).map(g => g.media.shortName);
-  const w = whereToWatch(nets, mine || []);
-  return w.yours.length > 0 || !!w.free;
+// Light/dark logo with a colored dot when the team has no logo.
+const logo = (t, cls = 'logo') => t.logo
+  ? `<picture><source srcset="${esc(t.logo.replace('/500/', '/500-dark/'))}" media="(prefers-color-scheme: dark)"><img class="${cls}" src="${esc(t.logo)}" alt="" loading="lazy"></picture>`
+  : `<span class="dot" style="background:#${esc(t.color || '888')}"></span>`;
+const rank = c => { const r = c.curatedRank?.current; return r && r <= 25 ? r : null; };
+const nets = c => [...new Set((c.geoBroadcasts || []).map(g => g.media.shortName))];
+const sides = c => [...c.competitors].sort((a, b) => (b.homeAway === 'away') - (a.homeAway === 'away'));
+const statusText = (e, long) => {
+  const st = e.status.type;
+  if (st.state === 'pre') return long ? `${fmtDay(e.date, { weekday: 'long', month: 'short', day: 'numeric' })} · ${fmtTime(e.date)}` : fmtTime(e.date);
+  return st.state === 'in' ? `LIVE · ${st.shortDetail}` : st.shortDetail;
 };
+
+function gameRow(e) {
+  const c = e.competitions[0], st = e.status.type, n = nets(c);
+  const w = whereToWatch(n, mine || []);
+  const ok = w.yours.length || w.free;
+  const team = t => `<span class="team${st.completed && !t.winner ? ' lost' : ''}">${logo(t.team)}
+      <span class="nm">${rank(t) ? `<span class="rk">${rank(t)}</span>` : ''}${esc(t.team.shortDisplayName)}</span>
+      ${st.state !== 'pre' ? `<span class="sc">${esc(t.score)}</span>` : ''}</span>`;
+  return `<button class="game" data-id="${esc(e.id)}" aria-label="${esc(e.name)}, ${esc(statusText(e))}, ${esc(n.join(', ') || 'TV to be announced')}">
+    <span class="time${st.state === 'in' ? ' live' : ''}">${st.state === 'in' ? 'LIVE' : esc(statusText(e))}</span>
+    <span class="teams">${sides(c).map(team).join('')}</span>
+    <span class="tv${ok ? ' ok' : ''}">${ok ? '✓ ' : ''}${esc(n[0] || 'TBA')}${n.length > 1 ? ` +${n.length - 1}` : ''}</span>
+  </button>`;
+}
+
+function showGame(id) {
+  const e = events.find(x => x.id === id);
+  if (!e) return;
+  openId = id;
+  const c = e.competitions[0], st = e.status.type, n = nets(c);
+  const w = whereToWatch(n, mine || []);
+  const side = t => {
+    const fav = favs.includes(t.team.id);
+    return `<div class="side">${logo(t.team, '')}
+      <b>${rank(t) ? `<span class="rk">${rank(t)}</span>` : ''}${esc(t.team.shortDisplayName)}</b>
+      <div class="sub">${esc(t.records?.[0]?.summary || '')}</div>
+      ${st.state !== 'pre' ? `<div class="big">${esc(t.score)}</div>` : ''}
+      <button class="follow" data-team="${esc(t.team.id)}" aria-pressed="${fav}">${fav ? '★ Following' : '☆ Follow'}</button></div>`;
+  };
+  const [away, home] = sides(c);
+  let watch = n.length ? `<div class="nets">${n.map(x => `<span>${esc(x)}</span>`).join('')}</div>` : '<p class="no">TV channel not announced yet.</p>';
+  if (w.yours.length) watch += `<div class="yes">✓ You can watch with ${w.yours.map(id => esc(svcName[id])).join(', ')}</div>`;
+  else if (w.free) watch += `<div class="yes">✓ ${esc(w.free)}</div>`;
+  else if (n.length) watch += `<p class="no">${mine?.length ? 'Not on your services.' : 'Tell us your services to see if you can watch.'}</p>`;
+  const opts = w.options.filter(id => svcUrl[id]);
+  if (!w.yours.length && opts.length) watch += `<div class="opts">${opts.map(id =>
+    `<a href="${esc(svcUrl[id])}" target="_blank" rel="sponsored noopener">Watch with ${esc(svcName[id])}</a>`).join('')}</div>`;
+  if (w.unknown.length) watch += `<p class="no">Check ${w.unknown.map(esc).join(', ')} for how to stream.</p>`;
+
+  const v = c.venue, odds = c.odds?.[0];
+  const rows = [
+    ['Kickoff', `${fmtDay(e.date, { weekday: 'short', month: 'short', day: 'numeric' })}, ${fmtTime(e.date)}`],
+    ['Stadium', v && (v.fullName?.includes(v.address?.city) ? v.fullName
+      : [v.fullName, [v.address?.city, v.address?.state].filter(Boolean).join(', ')].filter(Boolean).join(' · '))],
+    ['Line', odds && [odds.details, odds.overUnder && `O/U ${odds.overUnder}`].filter(Boolean).join(' · ')],
+    ['Weather', e.weather && [e.weather.displayValue, e.weather.temperature && `${e.weather.temperature}°`].filter(Boolean).join(', ')],
+  ].filter(([, val]) => val);
+
+  $('game-body').innerHTML = `
+    <div class="status${st.state === 'in' ? ' live' : ''}">${esc(statusText(e, true))}</div>
+    ${c.notes?.[0]?.headline ? `<div class="note">${esc(c.notes[0].headline)}</div>` : ''}
+    <div class="match">${side(away)}<div class="vs">${c.neutralSite ? 'vs' : '@'}</div>${side(home)}</div>
+    <div class="sec"><h4>Where to watch</h4>${watch}</div>
+    ${rows.length ? `<div class="sec"><h4>Game info</h4><dl>${rows.map(([k, val]) => `<dt>${k}</dt><dd>${esc(val)}</dd>`).join('')}</dl></div>` : ''}`;
+  if (!$('game').open) $('game').showModal();
+}
+
+const canWatch = e => { const w = whereToWatch(nets(e.competitions[0]), mine || []); return w.yours.length > 0 || !!w.free; };
 const isFav = e => e.competitions[0].competitors.some(c => favs.includes(c.team.id));
 
 function render() {
@@ -80,19 +122,19 @@ function render() {
     const cs = e.competitions[0].competitors;
     if (q && !cs.some(c => `${c.team.displayName} ${c.team.abbreviation}`.toLowerCase().includes(q))) return false;
     if (filter === 'mine' && !canWatch(e)) return false;
-    if (filter === 'top25' && !cs.some(c => c.curatedRank?.current <= 25)) return false;
+    if (filter === 'top25' && !cs.some(rank)) return false;
     return true;
   }).sort((a, b) => new Date(a.date) - new Date(b.date));
 
-  if (!list.length) { $('games').innerHTML = '<p class="empty">No games match.</p>'; return; }
-  const day = e => new Date(e.date).toLocaleDateString([], { weekday: 'long', month: 'short', day: 'numeric' });
+  if (!list.length) { $('games').innerHTML = `<p class="empty">${filter === 'mine' && !mine?.length ? 'Pick your services to see what you can watch.' : 'No games match.'}</p>`; return; }
+  const day = e => fmtDay(e.date, { weekday: 'long', month: 'short', day: 'numeric' });
   const groups = [['Your teams', list.filter(isFav)]];
   for (const e of list.filter(e => !isFav(e))) {
     const g = groups.find(([k]) => k === day(e));
     g ? g[1].push(e) : groups.push([day(e), [e]]);
   }
   $('games').innerHTML = groups.filter(([, es]) => es.length)
-    .map(([k, es]) => `<h2>${esc(k)}</h2>${es.map(gameCard).join('')}`).join('');
+    .map(([k, es]) => `<h2>${esc(k)}</h2><div class="day">${es.map(gameRow).join('')}</div>`).join('');
 }
 
 function openServices() {
@@ -121,14 +163,18 @@ document.querySelector('.filters').addEventListener('click', e => {
   document.querySelectorAll('[data-filter]').forEach(x => x.setAttribute('aria-pressed', x === b));
   render();
 });
-$('games').addEventListener('click', e => {
-  const b = e.target.closest('.star');
-  if (!b) return;
-  const id = b.dataset.team;
+$('games').addEventListener('click', e => { const b = e.target.closest('.game'); if (b) showGame(b.dataset.id); });
+$('game').addEventListener('click', e => {
+  if (e.target === $('game') || e.target.closest('.close')) return $('game').close(); // backdrop or ✕
+  const f = e.target.closest('.follow');
+  if (!f) return;
+  const id = f.dataset.team;
   favs = favs.includes(id) ? favs.filter(x => x !== id) : [...favs, id];
   save('favs', favs);
   render();
+  showGame(openId);
 });
+$('game').addEventListener('close', () => { openId = null; });
 $('prev').addEventListener('click', () => fetchWeek(weeks[--weekIdx]));
 $('next').addEventListener('click', () => fetchWeek(weeks[++weekIdx]));
 
