@@ -302,18 +302,19 @@ async function openPicker() {
   $('picker').showModal();
   if (!teamLists[sport]) {
     $('team-list').innerHTML = '<p class="msg">Loading teams…</p>';
-    try {
-      const d = await (await fetch(`${BASE}/${SPORTS[sport].path}/teams?limit=1000${SPORTS[sport].q}`)).json();
-      teamLists[sport] = d.sports[0].leagues[0].teams.map(({ team: t }) => ({ id: t.id, name: t.displayName, logo: t.logos?.[0]?.href, color: t.color }))
-        .sort((a, b) => (favs.includes(b.id) - favs.includes(a.id)) || a.name.localeCompare(b.name));
-    } catch { $('team-list').innerHTML = '<p class="msg">Couldn\'t load teams. Try again.</p>'; return; }
+    try { Object.assign(teamLists, await (await fetch('teams.json')).json()); } // built by tools/teams.js
+    catch { $('team-list').innerHTML = '<p class="msg">Couldn\'t load teams. Try again.</p>'; return; }
   }
   listTeams();
+  $('team-q').focus();
 }
 
 function listTeams() {
   const q = $('team-q').value.trim().toLowerCase();
-  const list = (teamLists[sport] || []).filter(t => t.name.toLowerCase().includes(q)).slice(0, 60);
+  // Followed teams first, then names starting with the search, then a word starting with it.
+  const score = t => { const n = t.name.toLowerCase(); return (favs.includes(t.id) ? 0 : 4) + (n.startsWith(q) ? 0 : n.includes(` ${q}`) ? 1 : 2); };
+  const list = (teamLists[sport] || []).filter(t => t.name.toLowerCase().includes(q))
+    .sort((a, b) => score(a) - score(b)).slice(0, 60);
   $('team-list').innerHTML = list.length ? list.map(t => `<button data-team-pick="${esc(t.id)}">${logo(t)}<span>${esc(t.name)}</span>${favs.includes(t.id) ? '<span class="rk">★</span>' : ''}</button>`).join('')
     : '<p class="msg">No teams match.</p>';
 }
