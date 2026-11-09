@@ -15,6 +15,8 @@ const SERVICES = [
   { id: 'paramount',name: 'Paramount+',         url: 'https://www.paramountplus.com/' },
   { id: 'foxone',   name: 'Fox One',            url: 'https://www.foxone.com/' },
   { id: 'hbomax',   name: 'HBO Max',            url: 'https://www.hbomax.com/' },
+  { id: 'prime',    name: 'Prime Video',        url: 'https://www.amazon.com/primevideo' },
+  { id: 'netflix',  name: 'Netflix',            url: 'https://www.netflix.com/' },
 ];
 
 const LIVE = ['cable', 'yttv', 'hulu', 'fubo', 'directv'];
@@ -40,6 +42,12 @@ const NETWORKS = {
   'usa net':     [...LIVE, 'slingb'],
   'peacock':     ['peacock'],
   'paramount+':  ['paramount'],
+  'prime video': ['prime'],
+  'netflix':     ['netflix'],
+  'nfl net':     [...LIVE, 'slingb'],
+  'nfl network': [...LIVE, 'slingb'],
+  'nbcsn':       LIVE, // verify
+  'nba tv':      LIVE, // verify
 };
 const FREE = { 'cw': 'Free on The CW app' };
 

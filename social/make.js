@@ -6,10 +6,10 @@ const SITE = require('../config.js'); // name and address live in config.js
 const CHROME = '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
 const MAX_ROWS = 8;
 const SPORTS = {
-  cfb: { name: 'College Football', path: 'football/college-football', q: 'groups=80' },
-  nfl: { name: 'NFL', path: 'football/nfl', q: '' },
-  nba: { name: 'NBA', path: 'basketball/nba', q: '' },
-  cbb: { name: "Men's College Hoops", path: 'basketball/mens-college-basketball', q: 'groups=50' },
+  cfb: { name: 'College Football', emoji: '🏈', path: 'football/college-football', q: 'groups=80' },
+  nfl: { name: 'NFL', emoji: '🏈', path: 'football/nfl', q: '' },
+  nba: { name: 'NBA', emoji: '🏀', path: 'basketball/nba', q: '' },
+  cbb: { name: "Men's College Hoops", emoji: '🏀', path: 'basketball/mens-college-basketball', q: 'groups=50' },
 };
 
 const args = process.argv.slice(2);
@@ -76,7 +76,7 @@ function html(sport, top, more) {
   </style>
   <div class="k">WHERE TO WATCH</div><h1>${esc(sport.name)}</h1><div class="d">${esc(day)} · Times ET</div>
   <div class="list">${rows}${more > 0 ? `<div class="more">+${more} more games today</div>` : ''}</div>
-  <footer>🏈 ${esc(SITE.name)}<span>${esc(SITE.url)}</span></footer>`;
+  <footer>${sport.emoji} ${esc(SITE.name)}<span>${esc(SITE.url)}</span></footer>`;
 }
 
 (async () => {

@@ -21,4 +21,5 @@ r = whereToWatch(['MW+'], ['cable']);
 assert.deepStrictEqual(r, { yours: [], options: [], free: null, unknown: ['MW+'] });
 
 assert.deepStrictEqual(whereToWatch([], ['cable']).yours, []);
+assert.deepStrictEqual(whereToWatch(['Prime Video'], ['prime']).yours, ['prime']);
 console.log('ok');

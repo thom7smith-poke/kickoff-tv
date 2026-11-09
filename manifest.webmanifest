@@ -1,7 +1,7 @@
 {
-  "name": "Kickoff TV",
-  "short_name": "Kickoff TV",
-  "description": "Where to watch every college football game, matched to your services.",
+  "name": "KikoffTV",
+  "short_name": "KikoffTV",
+  "description": "Where to watch every college football, NFL and NBA game, matched to your services.",
   "start_url": "./",
   "display": "standalone",
   "background_color": "#0f3d2e",

@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Where to watch</title>
-<meta name="description" content="Where to watch every college football game, matched to the services you already have.">
+<meta name="description" content="Where to watch every college football, NFL and NBA game, matched to the services you already have.">
 <meta name="theme-color" content="#0f3d2e">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icon.svg" type="image/svg+xml">
@@ -32,6 +32,9 @@
   .bar { display: flex; align-items: center; gap: 8px; max-width: 640px; margin: 0 auto; }
   h1 { font-size: 19px; margin: 0; flex: 1; letter-spacing: -.01em; }
   .hbtn { background: rgba(255,255,255,.15); border: 0; border-radius: 999px; padding: 8px 14px; color: #fff; font-weight: 600; font-size: 14px; }
+  .sports { display: flex; gap: 4px; max-width: 640px; margin: 12px auto 0; background: rgba(0,0,0,.22); border-radius: 12px; padding: 4px; }
+  .sports button { flex: 1; border: 0; background: none; color: #fff; opacity: .8; font-weight: 600; font-size: 14px; padding: 8px 4px; border-radius: 9px; }
+  .sports button[aria-selected="true"] { background: #fff; color: #0f3d2e; opacity: 1; }
   .week { display: flex; align-items: center; justify-content: center; gap: 4px; max-width: 640px; margin: 10px auto 0; }
   .week button { background: none; border: 0; color: #fff; font-size: 24px; line-height: 1; padding: 2px 16px; }
   .week button:disabled { opacity: .25; }
@@ -110,6 +113,11 @@
     <button class="hbtn" id="install" hidden>Install</button>
     <button class="hbtn" id="open-services">My services</button>
   </div>
+  <div class="sports" id="sports" role="tablist" aria-label="Sport">
+    <button role="tab" data-sport="cfb" aria-selected="false">🏈 College</button>
+    <button role="tab" data-sport="nfl" aria-selected="false">🏈 NFL</button>
+    <button role="tab" data-sport="nba" aria-selected="false">🏀 NBA</button>
+  </div>
   <div class="week">
     <button id="prev" aria-label="Previous week">‹</button>
     <span id="week-label">Loading…</span>
@@ -121,7 +129,7 @@
   <div class="filters" role="group" aria-label="Filter games">
     <button class="chip" data-filter="all" aria-pressed="true">All games</button>
     <button class="chip" data-filter="mine" aria-pressed="false">I can watch</button>
-    <button class="chip" data-filter="top25" aria-pressed="false">Top 25</button>
+    <button class="chip" data-filter="top25" id="top25" aria-pressed="false">Top 25</button>
   </div>
   <div id="games" aria-live="polite"><p class="msg">Loading games…</p></div>
   <footer>
