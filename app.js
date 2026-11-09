@@ -20,7 +20,8 @@ const fmtDay = (d, o) => new Date(d).toLocaleDateString([], o);
 const fmtTime = d => new Date(d).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
 
 document.title = `${SITE.name}: ${SITE.tagline}`;
-$('site-name').textContent = `📺 ${SITE.name}`;
+// Last two letters in the accent color when the name ends in "TV" (e.g. KikoffTV).
+$('site-name').innerHTML = /tv$/i.test(SITE.name) ? `${esc(SITE.name.slice(0, -2))}<em>${esc(SITE.name.slice(-2))}</em>` : esc(SITE.name);
 
 const ymd = d => d.toISOString().slice(0, 10).replace(/-/g, '');
 const dayDate = s => new Date(`${s.slice(0, 4)}-${s.slice(4, 6)}-${s.slice(6)}T12:00:00`);
@@ -88,9 +89,9 @@ function setSport(s) {
   fetchGames();
 }
 
-// Light/dark logo with a colored dot when the team has no logo.
+// Dark-background logo variant; falls back to the regular logo if a team has no dark one.
 const logo = (t, cls = 'logo') => t.logo
-  ? `<picture><source srcset="${esc(t.logo.replace('/500/', '/500-dark/'))}" media="(prefers-color-scheme: dark)"><img class="${cls}" src="${esc(t.logo)}" alt="" loading="lazy"></picture>`
+  ? `<img class="${cls}" src="${esc(t.logo.replace('/500/', '/500-dark/'))}" onerror="this.onerror=null;this.src='${esc(t.logo)}'" alt="" loading="lazy">`
   : `<span class="dot" style="background:#${esc(t.color || '888')}"></span>`;
 const rank = c => { const r = c.curatedRank?.current; return r && r <= 25 ? r : null; };
 const isLocal = g => ['Home', 'Away'].includes(g.market?.type);
