@@ -47,7 +47,7 @@ function html(sport, top, more) {
   const time = d => new Date(d).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', timeZone: 'America/New_York' });
   const team = t => {
     const r = t.curatedRank?.current;
-    return `<span class="dot" style="background:#${esc(t.team.color || '888')}"></span>${r && r <= 25 ? `<b class="rk">${r}</b>` : ''}${esc(t.team.shortDisplayName)}`;
+    return `${t.team.logo ? `<img class="lg" src="${esc(t.team.logo)}" alt="">` : `<span class="dot" style="background:#${esc(t.team.color || "888")}"></span>`}${r && r <= 25 ? `<b class="rk">${r}</b>` : ''}${esc(t.team.shortDisplayName)}`;
   };
   const rows = top.map(({ e, teams, t }) => `<div class="row">
       <div class="time">${e.status.type.state === 'in' ? 'LIVE' : time(e.date)}</div>
@@ -66,6 +66,7 @@ function html(sport, top, more) {
   .m{flex:1;font-size:31px;font-weight:650;line-height:1.3}
   .at{color:#16191a}.at::before{content:"@ ";color:#9aa3a5;font-weight:500}
   .dot{display:inline-block;width:16px;height:16px;border-radius:50%;margin-right:12px;vertical-align:2px}
+  .lg{width:46px;height:46px;object-fit:contain;vertical-align:middle;margin:-6px 12px 0 0}
   .rk{font-size:22px;color:#7a8487;margin-right:8px}
   .tv{font-size:26px;font-weight:800;background:#0f3d2e;color:#fff;padding:10px 18px;border-radius:12px;max-width:330px;text-align:center}
   .tv.loc{background:#eef0ec;color:#4a5356;font-weight:650}
@@ -91,7 +92,7 @@ function html(sport, top, more) {
     if (!top.length) { console.log(`${key}: no games ${date}, skipped`); continue; }
     const file = path.join(out, `${key}-${date}`);
     fs.writeFileSync(`${file}.html`, html(sport, top, more));
-    execFileSync(CHROME, ['--headless=new', '--disable-gpu', '--hide-scrollbars', '--window-size=1080,1350',
+    execFileSync(CHROME, ['--headless=new', '--disable-gpu', '--hide-scrollbars', '--virtual-time-budget=6000', '--window-size=1080,1350',
       `--screenshot=${file}.png`, `file://${file}.html`], { stdio: 'ignore' });
     fs.unlinkSync(`${file}.html`);
     console.log(`${key}: ${file}.png (${top.length} games${more > 0 ? `, +${more} more` : ''})`);

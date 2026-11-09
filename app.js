@@ -41,7 +41,8 @@ function teamRow(c, pre) {
   const t = c.team, rank = c.curatedRank?.current;
   const fav = favs.includes(t.id);
   return `<div class="team">
-    <span class="dot" style="background:#${esc(t.color || '888')}"></span>
+    ${t.logo ? `<picture><source srcset="${esc(t.logo.replace("/500/", "/500-dark/"))}" media="(prefers-color-scheme: dark)"><img class="logo" src="${esc(t.logo)}" alt="" width="28" height="28" loading="lazy"></picture>`
+      : `<span class="dot" style="background:#${esc(t.color || "888")}"></span>`}
     <span class="name">${rank && rank <= 25 ? `<span class="rank">${rank}</span>` : ''}${esc(t.shortDisplayName)}
       <span class="rec">${esc(c.records?.[0]?.summary || '')}</span></span>
     ${!pre && c.score !== undefined ? `<span class="score">${esc(c.score)}</span>` : ''}

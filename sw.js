@@ -1,5 +1,5 @@
 // App shell from cache; game data network-first with cached fallback so the app opens offline.
-const CACHE = 'kickoff-v1';
+const CACHE = 'kickoff-v2';
 const SHELL = ['./', 'index.html', 'app.js', 'watch.js', 'manifest.webmanifest', 'icon.svg', 'icon-192.png', 'icon-512.png'];
 
 self.addEventListener('install', e => e.waitUntil(caches.open(CACHE).then(c => c.addAll(SHELL)).then(() => self.skipWaiting())));
