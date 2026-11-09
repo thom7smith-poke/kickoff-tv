@@ -121,8 +121,8 @@ function html(sport, rows, mode) {
   .key i{display:inline-block;width:18px;height:12px;border-radius:3px;margin-right:6px;vertical-align:-1px}
   footer .url{font-size:24px;color:#8a9592;font-weight:600}
   </style>
-  <div class="top"><div><div class="k">${{ tv: 'TV GUIDE', streaming: 'STREAMING GUIDE', all: 'TV &amp; STREAMING GUIDE' }[mode]} ${sport.emoji}</div><h1>${esc(sport.name)}</h1></div>
-    <div class="d"><b>${esc(day)}</b>All times ET</div></div>
+  <div class="top"><div><div class="k">${{ tv: 'TV GUIDE', streaming: 'STREAMING ONLY · NOT ON CABLE TV', all: 'TV &amp; STREAMING GUIDE' }[mode]} ${sport.emoji}</div><h1>${esc(sport.name)}</h1></div>
+    <div class="d"><b>${esc(day)}</b>${mode === 'streaming' ? 'Games on TV are in the TV guide · ' : ''}All times ET</div></div>
   <div class="grid"><div class="times">${ticks.join('')}</div>${body}</div>
   <footer><b>${brand}</b><div class="key"><span><i style="background:#2ee07f"></i>Top 25 vs Top 25</span><span><i style="background:rgba(46,224,127,.35);border:1px solid #2ee07f"></i>Top 25</span></div><span class="url">${esc(SITE.url)}</span></footer>`;
 }
