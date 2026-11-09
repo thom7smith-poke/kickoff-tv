@@ -39,7 +39,7 @@ function caption(sport, events) {
     '',
     ...top.map(h => `🔥 ${h.line}`),
     '',
-    `All ${events.length} game${events.length === 1 ? '' : 's'}, every channel → link in bio`,
+    events.length === 1 ? "Full guide → link in bio" : `All ${events.length} games, every channel → link in bio`,
     sport.tags,
   ].join('\n');
 }
